@@ -1,83 +1,79 @@
 import streamlit as st
-import json
 
-# Funkcja ładująca konfigurację (w demo używamy uproszczonego zestawu danych)
-def load_demo_config():
-    # W wersji demo ograniczamy miasta i pojazdy, by pokazać mechanikę działania
-    return {
-        "EURO_RATE": 4.3,
-        "PRICE": {
-            "fuelPLN": 6.4,
-            "fuelEUR": 1.65
+# --- KONFIGURACJA DANYCH DEMO ---
+# Dane zaszyte bezpośrednio w kodzie, aby demo działało bez pliku config.json
+DEMO_DATA = {
+    "EURO_RATE": 4.3,
+    "VEHICLE_TYPES": {
+        "FTL (Zestaw)": {"fuel": 0.3, "service": 0.5, "myto_key": "mytoFTL"},
+        "Bus (Dostawczy)": {"fuel": 0.14, "service": 0.37, "myto_key": "mytoBus"}
+    },
+    "ROUTES": {
+        "Poznań": {
+            "Berlin": {"distPL": 172, "distEU": 101, "mytoFTL": 77.77, "mytoBus": 60.0},
+            "Paryż": {"distPL": 172, "distEU": 1144, "mytoFTL": 355.82, "mytoBus": 60.0},
+            "Londyn": {"distPL": 171, "distEU": 915, "mytoFTL": 282.0, "mytoBus": 60.0}
         },
-        "VEHICLE_DATA": {
-            "FTL": {"fuelUsage": 0.3, "serviceCostPLN": 0.5},
-            "Bus": {"fuelUsage": 0.14, "serviceCostPLN": 0.37}
-        },
-        "ROUTES_DEMO": {
-            "Poznań": {
-                "Berlin": {"distPL": 172, "distEU": 101, "mytoFTL": 77.77, "mytoBus": 60.0},
-                "Paryż": {"distPL": 172, "distEU": 1144, "mytoFTL": 355.82, "mytoBus": 60.0}
-            },
-            "Warszawa": {
-                "Poznań": {"distPL": 352, "distEU": 0, "mytoFTL": 21.85, "mytoBus": 110.0},
-                "Londyn": {"distPL": 470, "distEU": 914, "mytoFTL": 355.43, "mytoBus": 175.0}
-            }
+        "Warszawa": {
+            "Wrocław": {"distPL": 363, "distEU": 0, "mytoFTL": 24.0, "mytoBus": 90.0},
+            "Praga": {"distPL": 470, "distEU": 153, "mytoFTL": 59.57, "mytoBus": 150.0}
         }
+    },
+    "PRICES": {
+        "fuelPLN": 6.4,
+        "fuelEUR": 1.65
     }
+}
 
-def calculate_costs(vehicle_type, route_data, config):
-    v_data = config["VEHICLE_DATA"][vehicle_type]
+# --- LOGIKA OBLICZENIOWA ---
+def calculate_demo_costs(vehicle_name, route_name, origin, rate_pln):
+    v = DEMO_DATA["VEHICLE_TYPES"][vehicle_name]
+    r = DEMO_DATA["ROUTES"][origin][route_name]
     
-    # Obliczenia paliwa
-    total_dist = route_data["distPL"] + route_data["distEU"]
-    fuel_needed = total_dist * v_data["fuelUsage"]
-    
-    # Koszt paliwa (uproszczone: PL w PLN, EU w EUR)
-    fuel_cost_pln = route_data["distPL"] * v_data["fuelUsage"] * config["PRICE"]["fuelPLN"]
-    fuel_cost_eur = route_data["distEU"] * v_data["fuelUsage"] * config["PRICE"]["fuelEUR"]
+    # Koszty paliwa
+    cost_fuel = (r["distPL"] * v["fuel"] * DEMO_DATA["PRICES"]["fuelPLN"]) + \
+                (r["distEU"] * v["fuel"] * DEMO_DATA["PRICES"]["fuelEUR"] * DEMO_DATA["EURO_RATE"])
     
     # Myto i serwis
-    myto_key = f"myto{vehicle_type}"
-    myto_cost = route_data.get(myto_key, 0)
-    service_cost = total_dist * v_data["serviceCostPLN"]
+    cost_myto = r[v["myto_key"]] * DEMO_DATA["EURO_RATE"]
+    cost_service = (r["distPL"] + r["distEU"]) * v["service"]
     
-    total_cost_pln = fuel_cost_pln + (fuel_cost_eur * config["EURO_RATE"]) + (myto_cost * config["EURO_RATE"]) + service_cost
-    return round(total_cost_pln, 2)
+    total = cost_fuel + cost_myto + cost_service
+    return round(total, 2)
 
-# Interfejs Streamlit
-st.set_page_config(page_title="VORTEZA FLOW - DEMO", layout="centered")
-st.title("🚢 VORTEZA FLOW - Wersja Demonstracyjna")
-st.info("To jest wersja DEMO. Pełna wersja obsługuje wszystkie trasy europejskie i pojazdy typu Solo.")
+# --- INTERFEJS ---
+st.set_page_config(page_title="VORTEZA FLOW DEMO", page_icon="🚛")
 
-cfg = load_demo_config()
+st.title("🚛 VORTEZA FLOW - Demo Logistyczne")
+st.markdown("---")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    origin = st.selectbox("Punkt startowy", list(cfg["ROUTES_DEMO"].keys()))
-    vehicle = st.selectbox("Typ pojazdu", list(cfg["VEHICLE_DATA"].keys()))
+    start = st.selectbox("Miejsce załadunku", list(DEMO_DATA["ROUTES"].keys()))
+    vehicle = st.selectbox("Typ pojazdu", list(DEMO_DATA["VEHICLE_TYPES"].keys()))
 
 with col2:
-    destination = st.selectbox("Cel podróży", list(cfg["ROUTES_DEMO"][origin].keys()))
-    rate_pln = st.number_input("Twoja stawka za fracht (PLN)", value=5000)
+    end = st.selectbox("Miejsce rozładunku", list(DEMO_DATA["ROUTES"][start].keys()))
+    price = st.number_input("Stawka frachtu (PLN)", value=4500)
 
-if st.button("Oblicz rentowność"):
-    route = cfg["ROUTES_DEMO"][origin][destination]
-    total_cost = calculate_costs(vehicle, route, cfg)
-    margin = rate_pln - total_cost
+if st.button("Analizuj rentowność transportu"):
+    total_cost = calculate_demo_costs(vehicle, end, start, price)
+    margin = price - total_cost
     
-    st.divider()
+    st.subheader(f"Wynik analizy dla: {start} ➡️ {end}")
     
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Całkowity koszt", f"{total_cost} PLN")
-    c2.metric("Zysk/Marża", f"{round(margin, 2)} PLN", delta=f"{round(margin, 2)} PLN")
-    c3.metric("Dystans", f"{route['distPL'] + route['distEU']} km")
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Koszty całkowite", f"{total_cost} PLN")
+    m2.metric("Marża", f"{round(margin, 2)} PLN", delta=f"{round(margin, 2)} PLN")
+    m3.metric("Rentowność", f"{round((margin/price)*100, 1)}%")
 
-    if margin > 0:
-        st.success("Transport opłacalny!")
+    if margin > 500:
+        st.success("Transport wysoce opłacalny.")
+    elif margin > 0:
+        st.warning("Niska marża - sprawdź dodatkowe koszty (sloty, rozładunki).")
     else:
-        st.error("Transport poniżej progu rentowności!")
+        st.error("Transport generuje straty!")
 
-st.sidebar.image("logo_vorteza.png", width=200) # Jeśli masz plik w repo
-st.sidebar.write(f"Kurs EUR: {cfg['EURO_RATE']}")
+st.sidebar.markdown("### O VORTEZA FLOW")
+st.sidebar.info("To jest wersja demonstracyjna systemu do zarządzania logistyką targową SQM.")
