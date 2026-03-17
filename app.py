@@ -1,79 +1,128 @@
 import streamlit as st
+import base64
 
-# --- KONFIGURACJA DANYCH DEMO ---
-# Dane zaszyte bezpośrednio w kodzie, aby demo działało bez pliku config.json
-DEMO_DATA = {
+# --- KONFIGURACJA STRONY ---
+st.set_page_config(
+    page_title="VORTEZA FLOW - Logistics Management System",
+    page_icon="🚛",
+    layout="wide"
+)
+
+# --- FUNKCJA DO ŁADOWANIA TŁA ---
+def set_background(image_file):
+    with open(image_file, "rb") as f:
+        img_data = f.read()
+    b64_encoded = base64.b64encode(img_data).decode()
+    style = f"""
+    <style>
+    .stApp {{
+        background-image: url("data:image/png;base64,{b64_encoded}");
+        background-attachment: fixed;
+        background-size: cover;
+    }}
+    </style>
+    """
+    st.markdown(style, unsafe_allow_html=True)
+
+# Próba załadowania tła - upewnij się, że plik jest w repozytorium
+try:
+    set_background("bg_vorteza.png")
+except Exception:
+    pass
+
+# --- DANE DEMO (IDENTYCZNA STRUKTURA JAK W CONFIG.JSON) ---
+DEMO_CONFIG = {
     "EURO_RATE": 4.3,
-    "VEHICLE_TYPES": {
-        "FTL (Zestaw)": {"fuel": 0.3, "service": 0.5, "myto_key": "mytoFTL"},
-        "Bus (Dostawczy)": {"fuel": 0.14, "service": 0.37, "myto_key": "mytoBus"}
+    "PRICE": {"fuelPLN": 6.4, "fuelEUR": 1.65},
+    "VEHICLE_DATA": {
+        "FTL": {"fuelUsage": 0.3, "serviceCostPLN": 0.5, "myto_key": "mytoFTL"},
+        "Bus": {"fuelUsage": 0.14, "serviceCostPLN": 0.37, "myto_key": "mytoBus"}
     },
     "ROUTES": {
         "Poznań": {
             "Berlin": {"distPL": 172, "distEU": 101, "mytoFTL": 77.77, "mytoBus": 60.0},
-            "Paryż": {"distPL": 172, "distEU": 1144, "mytoFTL": 355.82, "mytoBus": 60.0},
-            "Londyn": {"distPL": 171, "distEU": 915, "mytoFTL": 282.0, "mytoBus": 60.0}
+            "Paryż": {"distPL": 172, "distEU": 1144, "mytoFTL": 355.82, "mytoBus": 60.0}
         },
         "Warszawa": {
             "Wrocław": {"distPL": 363, "distEU": 0, "mytoFTL": 24.0, "mytoBus": 90.0},
             "Praga": {"distPL": 470, "distEU": 153, "mytoFTL": 59.57, "mytoBus": 150.0}
         }
-    },
-    "PRICES": {
-        "fuelPLN": 6.4,
-        "fuelEUR": 1.65
     }
 }
 
-# --- LOGIKA OBLICZENIOWA ---
-def calculate_demo_costs(vehicle_name, route_name, origin, rate_pln):
-    v = DEMO_DATA["VEHICLE_TYPES"][vehicle_name]
-    r = DEMO_DATA["ROUTES"][origin][route_name]
+# --- PASEK BOCZNY (BRANDING) ---
+with st.sidebar:
+    try:
+        st.image("logo_vorteza.png", use_container_width=True)
+    except Exception:
+        st.title("VORTEZA FLOW")
     
-    # Koszty paliwa
-    cost_fuel = (r["distPL"] * v["fuel"] * DEMO_DATA["PRICES"]["fuelPLN"]) + \
-                (r["distEU"] * v["fuel"] * DEMO_DATA["PRICES"]["fuelEUR"] * DEMO_DATA["EURO_RATE"])
+    st.markdown("---")
+    st.info("Wersja demonstracyjna systemu rentowności.")
+    st.write(f"Aktualny kurs EUR: **{DEMO_CONFIG['EURO_RATE']}**")
+
+# --- GŁÓWNY INTERFEJS ---
+st.title("Analiza Rentowności Transportu")
+
+with st.container():
+    c1, c2, c3 = st.columns(3)
     
-    # Myto i serwis
-    cost_myto = r[v["myto_key"]] * DEMO_DATA["EURO_RATE"]
-    cost_service = (r["distPL"] + r["distEU"]) * v["service"]
+    with c1:
+        origin = st.selectbox("Punkt startowy", list(DEMO_CONFIG["ROUTES"].keys()))
+    with c2:
+        destination = st.selectbox("Cel podróży", list(DEMO_CONFIG["ROUTES"][origin].keys()))
+    with c3:
+        vehicle_type = st.selectbox("Typ pojazdu", list(DEMO_CONFIG["VEHICLE_DATA"].keys()))
+
+    rate_pln = st.number_input("Stawka frachtu (PLN)", min_value=0, value=5000)
+
+if st.button("OBLICZ RENTOWNOŚĆ", use_container_width=True):
+    # Logika obliczeń
+    v = DEMO_CONFIG["VEHICLE_DATA"][vehicle_type]
+    r = DEMO_CONFIG["ROUTES"][origin][destination]
     
-    total = cost_fuel + cost_myto + cost_service
-    return round(total, 2)
-
-# --- INTERFEJS ---
-st.set_page_config(page_title="VORTEZA FLOW DEMO", page_icon="🚛")
-
-st.title("🚛 VORTEZA FLOW - Demo Logistyczne")
-st.markdown("---")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    start = st.selectbox("Miejsce załadunku", list(DEMO_DATA["ROUTES"].keys()))
-    vehicle = st.selectbox("Typ pojazdu", list(DEMO_DATA["VEHICLE_TYPES"].keys()))
-
-with col2:
-    end = st.selectbox("Miejsce rozładunku", list(DEMO_DATA["ROUTES"][start].keys()))
-    price = st.number_input("Stawka frachtu (PLN)", value=4500)
-
-if st.button("Analizuj rentowność transportu"):
-    total_cost = calculate_demo_costs(vehicle, end, start, price)
-    margin = price - total_cost
+    cost_fuel = (r["distPL"] * v["fuelUsage"] * DEMO_CONFIG["PRICE"]["fuelPLN"]) + \
+                (r["distEU"] * v["fuelUsage"] * DEMO_CONFIG["PRICE"]["fuelEUR"] * DEMO_CONFIG["EURO_RATE"])
     
-    st.subheader(f"Wynik analizy dla: {start} ➡️ {end}")
+    cost_myto = r[v["myto_key"]] * DEMO_CONFIG["EURO_RATE"]
+    cost_service = (r["distPL"] + r["distEU"]) * v["serviceCostPLN"]
     
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Koszty całkowite", f"{total_cost} PLN")
-    m2.metric("Marża", f"{round(margin, 2)} PLN", delta=f"{round(margin, 2)} PLN")
-    m3.metric("Rentowność", f"{round((margin/price)*100, 1)}%")
+    total_cost = round(cost_fuel + cost_myto + cost_service, 2)
+    margin = round(rate_pln - total_cost, 2)
+    roi = round((margin / rate_pln) * 100, 1) if rate_pln > 0 else 0
 
-    if margin > 500:
-        st.success("Transport wysoce opłacalny.")
-    elif margin > 0:
-        st.warning("Niska marża - sprawdź dodatkowe koszty (sloty, rozładunki).")
+    # Prezentacja wyników (identycznie jak w pełnej wersji)
+    st.markdown("---")
+    res1, res2, res3 = st.columns(3)
+    
+    res1.metric("Koszty całkowite", f"{total_cost} PLN")
+    res2.metric("Marża (Zysk)", f"{margin} PLN", delta=f"{margin} PLN")
+    res3.metric("Rentowność (ROI)", f"{roi}%")
+
+    if margin > 0:
+        st.success("Zlecenie rentowne.")
     else:
-        st.error("Transport generuje straty!")
+        st.error("Zlecenie nierentowne!")
 
-st.sidebar.markdown("### O VORTEZA FLOW")
-st.sidebar.info("To jest wersja demonstracyjna systemu do zarządzania logistyką targową SQM.")
+# --- STOPKA ---
+st.markdown(
+    """
+    <style>
+    .footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: rgba(0,0,0,0.5);
+        color: white;
+        text-align: center;
+        padding: 10px;
+        font-size: 12px;
+    }
+    </style>
+    <div class="footer">
+        VORTEZA FLOW DEMO - SQM Multimedia Solutions System
+    </div>
+    """,
+    unsafe_allow_html=True
+)
