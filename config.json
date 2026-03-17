@@ -1,0 +1,45 @@
+{
+    "EURO_RATE": 4.3,
+    "PRICE": {
+        "fuelPLN": 6.4,
+        "fuelEUR": 1.65,
+        "adBluePLN": 3.8,
+        "adBlueEUR": 1.4
+    },
+    "VEHICLE_DATA": {
+        "FTL": {
+            "fuelUsage": 0.3,
+            "adBlueUsage": 0.02,
+            "serviceCostPLN": 0.5,
+            "serviceCostEUR": 0.075,
+            "tankCapacity": 900
+        },
+        "Solo": {
+            "fuelUsage": 0.2,
+            "adBlueUsage": 0.02,
+            "serviceCostPLN": 0.5,
+            "serviceCostEUR": 0.075,
+            "tankCapacity": 600
+        },
+        "Bus": {
+            "fuelUsage": 0.14,
+            "adBlueUsage": 0.013,
+            "serviceCostPLN": 0.37,
+            "serviceCostEUR": 0.09,
+            "tankCapacity": 85
+        }
+    },
+    "DISTANCES_AND_MYTO": {
+        "Poznań": {
+            "Berlin": { "distPL": 172, "distEU": 101, "mytoFTL": 77.77, "mytoSolo": 120.0, "mytoBus": 60.0 },
+            "Paryż": { "distPL": 172, "distEU": 1144, "mytoFTL": 355.82, "mytoSolo": 120.0, "mytoBus": 60.0 }
+        },
+        "Warszawa": {
+            "Londyn": { "distPL": 470, "distEU": 914, "mytoFTL": 355.43, "mytoSolo": 350.0, "mytoBus": 175.0 },
+            "Madryt": { "distPL": 514, "distEU": 2339, "mytoFTL": 552.32, "mytoSolo": 0.0, "mytoBus": 0.0 }
+        },
+        "Gdańsk": {
+            "Wrocław": { "distPL": 455, "distEU": 0, "mytoFTL": 32.52, "mytoSolo": 220.0, "mytoBus": 110.0 }
+        }
+    }
+}
