@@ -7,8 +7,10 @@ import base64
 st.set_page_config(page_title="VORTEZA FLOW | DEMO", layout="wide")
 
 # =========================================================
-# DANE DEMO (5 WYBRANYCH TRAS Z CONFIG.JSON)
+# DANE DEMO I DOSTĘPU
 # =========================================================
+DEMO_PASSWORD = "Quietpanther294"  # <--- TUTAJ USTAW HASŁO DLA KLIENTA
+
 DEMO_DATA = {
     "EURO_RATE": 4.3,
     "PRICE": {
@@ -30,10 +32,9 @@ DEMO_DATA = {
 }
 
 # =========================================================
-# STYLIZACJA (IDENTYCZNA Z PEŁNĄ WERSJĄ)
+# STYLIZACJA VORTEZA SYSTEMS
 # =========================================================
 def apply_style():
-    # Próba załadowania tła, jeśli plik istnieje w repo
     bg_base64 = ""
     try:
         with open("bg_vorteza.png", "rb") as f:
@@ -119,112 +120,119 @@ def apply_style():
                 padding: 10px 8px;
                 border-bottom: 1px solid #222;
             }}
+            
+            /* Stylizacja formularza logowania */
+            .stForm {{
+                background-color: var(--v-panel);
+                border: 1px solid var(--v-copper);
+                padding: 20px;
+                border-radius: 10px;
+            }}
         </style>
     """, unsafe_allow_html=True)
 
 # =========================================================
-# LOGIKA OBLICZEŃ
+# SYSTEM LOGOWANIA
 # =========================================================
-def calculate(v_type, route, extra_km):
-    v = DEMO_DATA["VEHICLE_DATA"][v_type]
-    prices = DEMO_DATA["PRICE"]
-    euro_rate = DEMO_DATA["EURO_RATE"]
-    
-    total_km_pl = route["distPL"]
-    total_km_eu = route["distEU"] + extra_km
-    total_km = total_km_pl + total_km_eu
+def check_password():
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
 
-    # Paliwo
-    c_fuel_pln = (total_km_pl * v["fuelUsage"] * prices["fuelPLN"]) + \
-                 (total_km_eu * v["fuelUsage"] * prices["fuelEUR"] * euro_rate)
-    
-    # AdBlue
-    c_adblue_pln = (total_km * v["adBlueUsage"]) * prices["adBluePLN"]
-    
-    # Serwis
-    c_service_pln = (total_km_pl * v["serviceCostPLN"]) + \
-                    (total_km_eu * v["serviceCostEUR"] * euro_rate)
-    
-    # Myto
-    myto_key = f"myto{v_type}"
-    c_myto_eur = route.get(myto_key, 0)
-    c_myto_pln = c_myto_eur * euro_rate
-    
-    total_pln = c_fuel_pln + c_adblue_pln + c_service_pln + c_myto_pln
-    
-    return {
-        "total_pln": total_pln,
-        "total_eur": total_pln / euro_rate,
-        "fuel": c_fuel_pln,
-        "adblue": c_adblue_pln,
-        "service": c_service_pln,
-        "myto": c_myto_pln,
-        "myto_eur": c_myto_eur
-    }
+    if not st.session_state["authenticated"]:
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown("<br><br>", unsafe_allow_html=True)
+            with st.form("Login"):
+                st.subheader("VORTEZA | SECURE ACCESS")
+                password = st.text_input("Hasło dostępu", type="password")
+                submit = st.form_submit_button("WEJDŹ DO SYSTEMU")
+                if submit:
+                    if password == DEMO_PASSWORD:
+                        st.session_state["authenticated"] = True
+                        st.rerun()
+                    else:
+                        st.error("Nieprawidłowe hasło.")
+        return False
+    return True
 
 # =========================================================
-# INTERFEJS UŻYTKOWNIKA
+# GŁÓWNA APLIKACJA
 # =========================================================
 apply_style()
 
-# Nagłówek
-col_l, col_r = st.columns([1, 4])
-with col_l:
-    try:
-        st.image("logo_vorteza.png", use_container_width=True)
-    except:
-        st.title("VORTEZA")
-with col_r:
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.title("VORTEZA FLOW — DEMO")
+if check_password():
+    # Nagłówek i przycisk wylogowania
+    col_l, col_r, col_out = st.columns([1, 4, 1])
+    with col_l:
+        try:
+            st.image("logo_vorteza.png", use_container_width=True)
+        except:
+            st.title("VORTEZA")
+    with col_r:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.title("VORTEZA FLOW — DEMO")
+    with col_out:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        if st.button("WYLOGUJ"):
+            st.session_state["authenticated"] = False
+            st.rerun()
 
-st.markdown("---")
+    st.markdown("---")
 
-# Główny Panel
-c_left, c_right = st.columns([1, 1], gap="large")
+    # Layout Kalkulatora
+    c_left, c_right = st.columns([1, 1], gap="large")
 
-with c_left:
-    st.subheader("Transport Configuration")
-    vehicle = st.selectbox("VEHICLE UNIT TYPE", list(DEMO_DATA["VEHICLE_DATA"].keys()))
-    
-    route_names = [f"{r['from']} ➔ {r['to']}" for r in DEMO_DATA["ROUTES"]]
-    route_idx = st.selectbox("SELECT ROUTE (DEMO)", range(len(route_names)), format_func=lambda x: route_names[x])
-    selected_route = DEMO_DATA["ROUTES"][route_idx]
-    
-    extra = st.number_input("ADDITIONAL DISTANCE (KM)", value=0, step=10)
-    
-    st.markdown(f"""
-        <div class="route-preview">
-            <b style="color:#B58863;">BASE DISTANCE DATA:</b><br>
-            🇵🇱 Poland: <b>{selected_route['distPL']} km</b><br>
-            🇪🇺 EU / Other: <b>{selected_route['distEU']} km</b><br>
-            ➕ Additional: <b>{extra} km</b><br>
-            <hr style="border:0; border-top:1px solid #444; margin:5px 0;">
-            📏 Total Calculation: <b>{selected_route['distPL'] + selected_route['distEU'] + extra} km</b>
-        </div>
-    """, unsafe_allow_html=True)
+    with c_left:
+        st.subheader("Transport Configuration")
+        vehicle = st.selectbox("VEHICLE UNIT TYPE", list(DEMO_DATA["VEHICLE_DATA"].keys()))
+        route_names = [f"{r['from']} ➔ {r['to']}" for r in DEMO_DATA["ROUTES"]]
+        route_idx = st.selectbox("SELECT ROUTE", range(len(route_names)), format_func=lambda x: route_names[x])
+        selected_route = DEMO_DATA["ROUTES"][route_idx]
+        extra = st.number_input("ADDITIONAL DISTANCE (KM)", value=0, step=10)
+        
+        st.markdown(f"""
+            <div class="route-preview">
+                <b style="color:#B58863;">BASE DISTANCE DATA:</b><br>
+                🇵🇱 Poland: <b>{selected_route['distPL']} km</b><br>
+                🇪🇺 EU / Other: <b>{selected_route['distEU']} km</b><br>
+                ➕ Additional: <b>{extra} km</b><br>
+                <hr style="border:0; border-top:1px solid #444; margin:5px 0;">
+                📏 Total Calculation: <b>{selected_route['distPL'] + selected_route['distEU'] + extra} km</b>
+            </div>
+        """, unsafe_allow_html=True)
 
-with c_right:
-    st.markdown('<div class="vorteza-card">', unsafe_allow_html=True)
-    st.subheader("Technical Margin Analysis")
-    
-    res = calculate(vehicle, selected_route, extra)
-    er = DEMO_DATA["EURO_RATE"]
+    with c_right:
+        st.markdown('<div class="vorteza-card">', unsafe_allow_html=True)
+        st.subheader("Technical Margin Analysis")
+        
+        # Logika obliczeń
+        v = DEMO_DATA["VEHICLE_DATA"][vehicle]
+        er = DEMO_DATA["EURO_RATE"]
+        km_pl = selected_route["distPL"]
+        km_eu = selected_route["distEU"] + extra
+        
+        c_fuel = (km_pl * v["fuelUsage"] * DEMO_DATA["PRICE"]["fuelPLN"]) + (km_eu * v["fuelUsage"] * DEMO_DATA["PRICE"]["fuelEUR"] * er)
+        c_adblue = ((km_pl + km_eu) * v["adBlueUsage"]) * DEMO_DATA["PRICE"]["adBluePLN"]
+        c_service = (km_pl * v["serviceCostPLN"]) + (km_eu * v["serviceCostEUR"] * er)
+        myto_eur = selected_route.get(f"myto{vehicle}", 0)
+        c_myto = myto_eur * er
+        
+        total_pln = c_fuel + c_adblue + c_service + c_myto
 
-    m1, m2 = st.columns(2)
-    m1.metric("TOTAL COST (PLN)", f"{res['total_pln']:,.2f} zł")
-    m2.metric("TOTAL COST (EUR)", f"€ {res['total_eur']:,.2f}")
+        m1, m2 = st.columns(2)
+        m1.metric("TOTAL COST (PLN)", f"{total_pln:,.2f} zł")
+        m2.metric("TOTAL COST (EUR)", f"€ {total_pln/er:,.2f}")
 
-    st.markdown(f"""
-        <table class="cost-table">
-            <tr><th>Category</th><th>PLN Value</th><th>EUR Value</th></tr>
-            <tr><td>Fuel & Energy</td><td>{res['fuel']:,.2f} zł</td><td>€ {res['fuel']/er:,.2f}</td></tr>
-            <tr><td>AdBlue Fluids</td><td>{res['adblue']:,.2f} zł</td><td>€ {res['adblue']/er:,.2f}</td></tr>
-            <tr><td>Technical Service</td><td>{res['service']:,.2f} zł</td><td>€ {res['service']/er:,.2f}</td></tr>
-            <tr><td>Road Tolls (Myto)</td><td>{res['myto']:,.2f} zł</td><td>€ {res['myto_eur']:,.2f}</td></tr>
-        </table>
-        <div style="margin-top:15px; font-size:0.75rem; color:#666; text-transform: uppercase;">
-            EX RATE: 1 EUR = {er} PLN | UNIT: {vehicle} | DEMO MODE
-        </div>
-    """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(f"""
+            <table class="cost-table">
+                <tr><th>Category</th><th>PLN Value</th><th>EUR Value</th></tr>
+                <tr><td>Fuel & Energy</td><td>{c_fuel:,.2f} zł</td><td>€ {c_fuel/er:,.2f}</td></tr>
+                <tr><td>AdBlue Fluids</td><td>{c_adblue:,.2f} zł</td><td>€ {c_adblue/er:,.2f}</td></tr>
+                <tr><td>Technical Service</td><td>{c_service:,.2f} zł</td><td>€ {c_service/er:,.2f}</td></tr>
+                <tr><td>Road Tolls (Myto)</td><td>{c_myto:,.2f} zł</td><td>€ {myto_eur:,.2f}</td></tr>
+            </table>
+            <div style="margin-top:15px; font-size:0.75rem; color:#666; text-transform: uppercase;">
+                EX RATE: 1 EUR = {er} PLN | UNIT: {vehicle} | DEMO MODE
+            </div>
+        """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
